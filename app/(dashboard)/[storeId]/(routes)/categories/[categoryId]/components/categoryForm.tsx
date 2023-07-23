@@ -9,12 +9,10 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useParams, useRouter } from 'next/navigation';
 
-import { Billboard } from '@prisma/client';
 import Heading from '@/components/ui/heading';
 import { Input } from '@/components/ui/input';
-import { useOrigin } from '@/hooks/useOrigin';
 import { Button } from '@/components/ui/button';
-import ImageUpload from '@/components/ui/imageUpload';
+import { Billboard, Category } from '@prisma/client';
 import { Separator } from '@/components/ui/separator';
 import AlertModal from '@/components/modals/alertModal';
 import {
@@ -25,48 +23,55 @@ import {
   FormControl,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
-interface BillboardFormProps {
-  billboard: Billboard | null;
+interface CategoryFormProps {
+  billboards: Billboard[];
+  category: Category | null;
 }
 
 const formSchema = z.object({
-  label: z.string().min(1),
-  imageUrl: z.string().min(1),
+  name: z.string().min(1),
+  billboardId: z.string().min(1),
 });
 
-type BillboardFormValue = z.infer<typeof formSchema>;
+type CategoryFormValue = z.infer<typeof formSchema>;
 
-const BillboardForm: FC<BillboardFormProps> = ({ billboard }) => {
+const CategoryForm: FC<CategoryFormProps> = ({ category, billboards }) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const origin = useOrigin();
   const params = useParams();
   const router = useRouter();
 
-  const title = !!billboard ? 'Edit billboard' : 'Create billboard';
-  const description = !!billboard ? 'Edit a billboard' : 'Add a new billboard';
-  const toastMessage = !!billboard ? 'Billboard updated' : 'Billboard Created';
-  const action = !!billboard ? 'Save changes' : 'Create Billboard';
+  const title = !!category ? 'Edit category' : 'Create category';
+  const description = !!category ? 'Edit a category' : 'Add a new category';
+  const toastMessage = !!category ? 'Category updated' : 'Category Created';
+  const action = !!category ? 'Save changes' : 'Create Category';
 
-  const form = useForm<BillboardFormValue>({
+  const form = useForm<CategoryFormValue>({
     resolver: zodResolver(formSchema),
-    defaultValues: billboard || { label: '', imageUrl: '' },
+    defaultValues: category || { name: '', billboardId: '' },
   });
 
-  const onSubmit = async (data: BillboardFormValue) => {
+  const onSubmit = async (data: CategoryFormValue) => {
     try {
       setLoading(true);
-      if (billboard) {
+      if (category) {
         await axios.patch(
-          `/api/${params.storeId}/billboards/${params.billboardId}`,
+          `/api/${params.storeId}/categories/${params.categoryId}`,
           data
         );
       } else {
-        await axios.post(`/api/${params.storeId}/billboards`, data);
+        await axios.post(`/api/${params.storeId}/categories`, data);
       }
-      router.push(`/${params.storeId}/billboards`);
+      router.push(`/${params.storeId}/categories`);
       router.refresh();
       toast.success(toastMessage);
     } catch (error) {
@@ -80,14 +85,14 @@ const BillboardForm: FC<BillboardFormProps> = ({ billboard }) => {
     try {
       setLoading(true);
       await axios.delete(
-        `/api/${params.storeId}/billboards/${params.billboardId}`
+        `/api/${params.storeId}/categories/${params.categoryId}`
       );
       router.refresh();
-      router.push(`/${params.storeId}/billboards`);
-      toast.success('Billboard deleted!!');
+      router.push(`/${params.storeId}/categories`);
+      toast.success('Category deleted!!');
     } catch (error) {
       toast.error(
-        'Make sure you removed all categories using this billboard first.'
+        'Make sure you removed all products using this category first.'
       );
     } finally {
       setLoading(false);
@@ -105,7 +110,7 @@ const BillboardForm: FC<BillboardFormProps> = ({ billboard }) => {
       />
       <div className='flex items-center justify-between'>
         <Heading title={title} description={description} />
-        {!!billboard && (
+        {!!category && (
           <Button
             size='sm'
             onClick={() => setOpen(true)}
@@ -122,38 +127,52 @@ const BillboardForm: FC<BillboardFormProps> = ({ billboard }) => {
           onSubmit={form.handleSubmit(onSubmit)}
           className='space-y-8 w-full'
         >
-          <FormField
-            control={form.control}
-            name='imageUrl'
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Background Image</FormLabel>
-                <FormControl>
-                  <ImageUpload
-                    value={field.value ? [field.value] : []}
-                    disabled={loading}
-                    onChange={(url) => field.onChange(url)}
-                    onRemove={() => field.onChange('')}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
           <div className='grid grid-cols-3 gap-8'>
             <FormField
               control={form.control}
-              name='label'
+              name='name'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Label</FormLabel>
+                  <FormLabel>Name</FormLabel>
                   <FormControl>
                     <Input
                       disabled={loading}
-                      placeholder='Billboard label'
+                      placeholder='Category Name'
                       {...field}
                     />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name='billboardId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Billboard</FormLabel>
+                  <Select
+                    disabled={loading}
+                    value={field.value}
+                    defaultValue={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue
+                          defaultValue={field.value}
+                          placeholder='Select a billboard'
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {billboards.map((billboard) => (
+                        <SelectItem key={billboard.id} value={billboard.id}>
+                          {billboard.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -169,4 +188,4 @@ const BillboardForm: FC<BillboardFormProps> = ({ billboard }) => {
   );
 };
 
-export default BillboardForm;
+export default CategoryForm;
